@@ -1,3 +1,4 @@
+# api.py
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -33,21 +34,28 @@ async def chatbot(req: ChatRequest):
     # 1) recall relevant memories
     memories = fetch_memory(req.chat_room_id, req.message)
 
-    # 2) build prompt (ultra‑simple, as requested)
-    prompt_parts = [
-        f"You are a friendly AI talking to {req.user}.",
-        "If past memories are relevant, weave them in naturally."
-    ]
+    # 2) build system + user messages to avoid speaker prefixes
+    system_prompt = (
+        f"You are a friendly AI assistant talking to {req.user}. "
+        "If past memories are relevant, weave them in naturally. "
+        "Do not include any prefixes like 'AI:'—just output the answer text."
+    )
+    user_parts = []
     if memories:
-        prompt_parts.append("\nPrevious snippets:\n" + "\n\n".join(memories))
-    prompt_parts.append(f"\nUser: {req.message}")
-    prompt = "\n".join(prompt_parts)
+        user_parts.append("Previous snippets:\n" + "\n\n".join(memories))
+    user_parts.append(f"User: {req.message}")
+    user_message = "\n".join(user_parts)
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message},
+    ]
 
     # 3) ask OpenAI
     try:
         resp = openai_client.chat.completions.create(
             model=MODEL,
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
             temperature=0.7,
         )
     except Exception as e:
