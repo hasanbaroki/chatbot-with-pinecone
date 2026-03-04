@@ -4,8 +4,7 @@ uvicorn[standard]>=0.30
 python-dotenv>=1.0
 openai>=1.30
 
-pinecone-client>=3.0          # ← ganti
-
+pinecone-client>=3.0         
 # LangChain v0.2 ecosystem
 langchain-core>=0.2
 langchain-openai>=0.1
