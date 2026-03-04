@@ -1,0 +1,4 @@
+project_id      = "my-gcp-project-id"
+region          = "asia-southeast1"
+service_name    = "chatbot-pinecone"
+repository_name = "chatbot-repo"

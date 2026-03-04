@@ -1,23 +1,22 @@
-# api.py
 from datetime import datetime
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-
 from openai import OpenAI
-from memory import store_memory, fetch_memory
 
-app = FastAPI(title="LovesYou mini‑bot")
+from app.config import settings
+from app.memory import store_memory, fetch_memory
 
-openai_client = OpenAI()  # reads OPENAI_API_KEY from env automatically
-MODEL = "gpt-4o-mini"
+app = FastAPI(title="LovesYou mini-bot")
+
+openai_client = OpenAI()
 
 
-# ── request / response schema ────────────────────────────────────────────────
 class ChatRequest(BaseModel):
     chat_room_id: str
     user: str
     message: str
-    timestamp: str   # ISO 8601
+    timestamp: str
 
 
 class ChatResponse(BaseModel):
@@ -28,13 +27,15 @@ class ChatResponse(BaseModel):
     timestamp: str
 
 
-# ── endpoint ─────────────────────────────────────────────────────────────────
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
+
 @app.post("/chatbot", response_model=ChatResponse)
 async def chatbot(req: ChatRequest):
-    # 1) recall relevant memories
     memories = fetch_memory(req.chat_room_id, req.message)
 
-    # 2) build system + user messages to avoid speaker prefixes
     system_prompt = (
         f"You are a friendly AI assistant talking to {req.user}. "
         "If past memories are relevant, weave them in naturally. "
@@ -51,10 +52,9 @@ async def chatbot(req: ChatRequest):
         {"role": "user", "content": user_message},
     ]
 
-    # 3) ask OpenAI
     try:
         resp = openai_client.chat.completions.create(
-            model=MODEL,
+            model=settings.model,
             messages=messages,
             temperature=0.7,
         )
@@ -63,10 +63,8 @@ async def chatbot(req: ChatRequest):
 
     ai_reply = resp.choices[0].message.content.strip()
 
-    # 4) persist to Pinecone
     store_memory(req.chat_room_id, req.message, ai_reply, req.timestamp)
 
-    # 5) send back
     return ChatResponse(
         chat_room_id=req.chat_room_id,
         user=req.user,
